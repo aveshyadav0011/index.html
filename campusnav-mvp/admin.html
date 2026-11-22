@@ -1,0 +1,315 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CampusNav AI — Admin</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 20px;
+      background: #f5f6fb;
+      color: #172033;
+      font-family: Arial, sans-serif;
+    }
+    main { max-width: 950px; margin: auto; }
+    h1 { font-size: 28px; }
+    .panel {
+      background: white;
+      padding: 20px;
+      margin: 18px 0;
+      border: 1px solid #e2e6ef;
+      border-radius: 14px;
+    }
+    form { display: grid; gap: 12px; }
+    input, select, textarea, button {
+      width: 100%;
+      padding: 12px;
+      font-size: 15px;
+      border: 1px solid #d9deea;
+      border-radius: 8px;
+    }
+    textarea { min-height: 80px; resize: vertical; }
+    button {
+      cursor: pointer;
+      background: #5145e5;
+      color: white;
+      border: 0;
+      font-weight: bold;
+    }
+    button.secondary { background: #e9eaf2; color: #172033; }
+    button.danger { background: #b42318; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+    .actions button { width: auto; }
+    .location { border-top: 1px solid #e2e6ef; padding: 14px 0; }
+    .status { color: #596579; font-size: 14px; }
+    .check { display: flex; align-items: center; gap: 10px; }
+    .check input { width: auto; }
+    .check label { font-size: 14px; }
+    [hidden] { display: none !important; }
+    @media (max-width: 600px) {
+      body { padding: 12px; }
+      .row { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <h1>CampusNav AI — Admin</h1>
+  <p class="status">Manage verified campus locations.</p>
+
+  <section class="panel" id="loginPanel">
+    <h2>Admin login</h2>
+    <form id="loginForm">
+      <input id="email" type="email" placeholder="Admin email" required>
+      <input id="password" type="password" placeholder="Admin password" required>
+      <button type="submit">Login</button>
+    </form>
+  </section>
+
+  <section id="dashboard" hidden>
+    <div class="panel">
+      <div class="actions">
+        <button type="button" id="newButton">Add new location</button>
+        <button type="button" class="secondary" id="logoutButton">Logout</button>
+      </div>
+      <p id="message" class="status" aria-live="polite"></p>
+    </div>
+
+    <div class="panel" id="editor" hidden>
+      <h2 id="formTitle">Add location</h2>
+      <form id="locationForm">
+        <input id="locationName" placeholder="Location name" required maxlength="100">
+
+        <select id="category" required>
+          <option value="academic">Academic</option>
+          <option value="office">Office</option>
+          <option value="facilities">Facilities</option>
+        </select>
+
+        <input id="building" placeholder="Verified building name">
+        <input id="floor" placeholder="Verified floor or room">
+        <textarea id="description" placeholder="Description based on verified information"></textarea>
+
+        <div class="row">
+          <input id="lat" type="number" step="any" min="-90" max="90" placeholder="Verified latitude">
+          <input id="lng" type="number" step="any" min="-180" max="180" placeholder="Verified longitude">
+        </div>
+
+        <div class="check">
+          <input id="verified" type="checkbox">
+          <label for="verified">Verified and ready to publish</label>
+        </div>
+
+        <p class="status">
+          Only mark verified after checking the information.
+          Publishing requires coordinates.
+        </p>
+
+        <button type="submit">Save location</button>
+        <button type="button" class="secondary" id="cancelButton">Cancel</button>
+      </form>
+    </div>
+
+    <div class="panel">
+      <h2>Locations</h2>
+      <div id="locations"></div>
+    </div>
+  </section>
+</main>
+
+<script>
+  let token = "";
+  let editingId = null;
+
+  const $ = id => document.getElementById(id);
+  const loginPanel = $("loginPanel");
+  const dashboard = $("dashboard");
+  const editor = $("editor");
+  const message = $("message");
+
+  function showMessage(text) {
+    message.textContent = text;
+  }
+
+  async function api(url, options = {}) {
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: "Bearer " + token } : {}),
+        ...(options.headers || {})
+      }
+    });
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(data.error || "Request failed");
+    }
+
+    return data;
+  }
+
+  $("loginForm").addEventListener("submit", async event => {
+    event.preventDefault();
+
+    try {
+      const result = await api("/api/admin/login", {
+        method: "POST",
+        body: JSON.stringify({
+          email: $("email").value,
+          password: $("password").value
+        })
+      });
+
+      token = result.token;
+      loginPanel.hidden = true;
+      dashboard.hidden = false;
+      $("password").value = "";
+      await loadLocations();
+      showMessage("Login successful");
+    } catch (error) {
+      alert(error.message);
+    }
+  });
+
+  function resetForm() {
+    editingId = null;
+    $("locationForm").reset();
+    $("formTitle").textContent = "Add location";
+    editor.hidden = true;
+  }
+
+  $("newButton").addEventListener("click", () => {
+    resetForm();
+    editor.hidden = false;
+    $("formTitle").textContent = "Add location";
+  });
+
+  $("cancelButton").addEventListener("click", resetForm);
+
+  $("logoutButton").addEventListener("click", () => {
+    token = "";
+    dashboard.hidden = true;
+    loginPanel.hidden = false;
+    resetForm();
+    $("locations").replaceChildren();
+    showMessage("Logged out");
+  });
+
+  $("locationForm").addEventListener("submit", async event => {
+    event.preventDefault();
+
+    const latText = $("lat").value.trim();
+    const lngText = $("lng").value.trim();
+
+    const location = {
+      name: $("locationName").value.trim(),
+      category: $("category").value,
+      building: $("building").value.trim(),
+      floor: $("floor").value.trim(),
+      description: $("description").value.trim(),
+      lat: latText === "" ? null : Number(latText),
+      lng: lngText === "" ? null : Number(lngText),
+      verified: $("verified").checked
+    };
+
+    try {
+      await api(
+        editingId
+          ? "/api/admin/locations/" + editingId
+          : "/api/admin/locations",
+        {
+          method: editingId ? "PUT" : "POST",
+          body: JSON.stringify(location)
+        }
+      );
+
+      resetForm();
+      showMessage("Location saved successfully");
+      await loadLocations();
+    } catch (error) {
+      alert(error.message);
+    }
+  });
+
+  async function loadLocations() {
+    try {
+      const locations = await api("/api/admin/locations");
+      const container = $("locations");
+      container.replaceChildren();
+
+      if (locations.length === 0) {
+        const empty = document.createElement("p");
+        empty.textContent = "No locations added yet.";
+        container.appendChild(empty);
+        return;
+      }
+
+      locations.forEach(location => {
+        const item = document.createElement("div");
+        item.className = "location";
+
+        const title = document.createElement("strong");
+        title.textContent = location.name;
+
+        const details = document.createElement("p");
+        details.className = "status";
+        details.textContent =
+          `${location.category} · ${location.building || "Building not set"} · ` +
+          (location.verified ? "Verified" : "Draft / unverified");
+
+        const actions = document.createElement("div");
+        actions.className = "actions";
+
+        const edit = document.createElement("button");
+        edit.textContent = "Edit";
+        edit.addEventListener("click", () => editLocation(location));
+
+        const remove = document.createElement("button");
+        remove.textContent = "Delete";
+        remove.className = "danger";
+        remove.addEventListener("click", () => deleteLocation(location._id));
+
+        actions.append(edit, remove);
+        item.append(title, details, actions);
+        container.appendChild(item);
+      });
+    } catch (error) {
+      showMessage(error.message + ". Please log in again if your session expired.");
+    }
+  }
+
+  function editLocation(location) {
+    editingId = location._id;
+    $("locationName").value = location.name;
+    $("category").value = location.category;
+    $("building").value = location.building || "";
+    $("floor").value = location.floor || "";
+    $("description").value = location.description || "";
+    $("lat").value = location.lat ?? "";
+    $("lng").value = location.lng ?? "";
+    $("verified").checked = location.verified;
+    $("formTitle").textContent = "Edit location";
+    editor.hidden = false;
+    editor.scrollIntoView({ behavior: "smooth" });
+  }
+
+  async function deleteLocation(id) {
+    if (!confirm("Delete this location permanently?")) return;
+
+    try {
+      await api("/api/admin/locations/" + id, { method: "DELETE" });
+      showMessage("Location deleted");
+      await loadLocations();
+    } catch (error) {
+      alert(error.message);
+    }
+  }
+</script>
+</body>
+</html>

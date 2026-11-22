@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CampusNav AI | Alta Indore</title>
+
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  >
+
+  <style>
+    :root {
+      --primary: #5145e5;
+      --dark: #172033;
+      --muted: #697386;
+      --border: #e5e8f0;
+      --background: #f6f7fb;
+      --white: #ffffff;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      color: var(--dark);
+      background: var(--background);
+      line-height: 1.5;
+    }
+
+    header {
+      background: var(--white);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 5%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .logo {
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--primary);
+    }
+
+    .logo span {
+      color: var(--dark);
+    }
+
+    .campus-label {
+      font-size: 13px;
+      color: var(--muted);
+      text-align: right;
+    }
+
+    main {
+      width: min(1100px, 92%);
+      margin: 32px auto;
+    }
+
+    .hero {
+      margin-bottom: 24px;
+    }
+
+    .eyebrow {
+      color: var(--primary);
+      font-size: 13px;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    h1 {
+      font-size: clamp(28px, 5vw, 42px);
+      margin: 8px 0;
+      line-height: 1.15;
+    }
+
+    .subtitle {
+      color: var(--muted);
+      max-width: 650px;
+    }
+
+    .search-box {
+      margin-top: 22px;
+      display: flex;
+      gap: 10px;
+    }
+
+    input {
+      width: 100%;
+      min-width: 0;
+      padding: 15px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      font-size: 16px;
+      outline-color: var(--primary);
+      background: white;
+    }
+
+    button {
+      border: 0;
+      border-radius: 12px;
+      background: var(--primary);
+      color: white;
+      font-size: 15px;
+      font-weight: bold;
+      padding: 0 22px;
+      cursor: pointer;
+    }
+
+    .section-heading {
+      margin: 28px 0 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .section-heading h2 {
+      font-size: 19px;
+    }
+
+    #resultCount {
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .filters {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+
+    .filter {
+      padding: 9px 14px;
+      background: white;
+      color: var(--dark);
+      border: 1px solid var(--border);
+      border-radius: 30px;
+      font-size: 13px;
+    }
+
+    .filter.active {
+      background: var(--primary);
+      color: white;
+      border-color: var(--primary);
+    }
+
+    .content-grid {
+      display: grid;
+      grid-template-columns: 0.9fr 1.1fr;
+      gap: 18px;
+      align-items: stretch;
+    }
+
+    .panel {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      overflow: hidden;
+      min-width: 0;
+    }
+
+    .panel-title {
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--border);
+      font-weight: bold;
+    }
+
+    #locationList {
+      padding: 14px;
+      display: grid;
+      gap: 10px;
+      align-content: start;
+    }
+
+    .location-card {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+      cursor: pointer;
+      background: white;
+      text-align: left;
+      color: var(--dark);
+      width: 100%;
+    }
+
+    .location-card:hover {
+      border-color: var(--primary);
+    }
+
+    .location-card strong {
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .location-card small {
+      color: var(--muted);
+      display: block;
+    }
+
+    .empty-state {
+      padding: 28px 16px;
+      text-align: center;
+      color: var(--muted);
+    }
+
+    .empty-state .emoji {
+      font-size: 32px;
+      margin-bottom: 10px;
+    }
+
+    #mapArea {
+      min-height: 340px;
+      height: 100%;
+      background: #edf0f6;
+    }
+
+    #map {
+      height: 100%;
+      min-height: 340px;
+      width: 100%;
+      display: none;
+    }
+
+    #mapPlaceholder {
+      min-height: 340px;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 28px;
+      text-align: center;
+      color: var(--muted);
+    }
+
+    #mapPlaceholder strong {
+      display: block;
+      color: var(--dark);
+      margin-bottom: 8px;
+      font-size: 18px;
+    }
+
+    .notice {
+      margin-top: 18px;
+      border: 1px solid #f0dfad;
+      background: #fff9e8;
+      color: #755719;
+      border-radius: 12px;
+      padding: 13px 15px;
+      font-size: 13px;
+    }
+
+    footer {
+      padding: 24px 5%;
+      text-align: center;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    @media (max-width: 720px) {
+      main {
+        margin: 24px auto;
+      }
+
+      .content-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .search-box {
+        flex-direction: column;
+      }
+
+      .search-box button {
+        padding: 14px;
+      }
+
+      #mapArea {
+        min-height: 300px;
+      }
+
+      header {
+        padding: 14px 4%;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <div class="logo">CampusNav<span> AI</span></div>
+    <div class="campus-label">
+      Initial target<br>
+      Alta School of Technology, Indore
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="eyebrow">Your campus, made easier</div>
+      <h1>Where do you want to go?</h1>
+      <p class="subtitle">
+        Search for a campus location. Results will appear here
+        when verified campus information has been added.
+      </p>
+
+      <div class="search-box">
+        <input
+          id="searchInput"
+          type="search"
+          placeholder="Search a verified room or location..."
+          aria-label="Search campus locations"
+        >
+        <button id="searchButton" type="button">Search</button>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-heading">
+        <h2>Explore campus</h2>
+        <span id="resultCount">0 verified locations</span>
+      </div>
+
+      <div class="filters" id="filters">
+        <button class="filter active" data-category="all">All</button>
+        <button class="filter" data-category="academic">Academic</button>
+        <button class="filter" data-category="office">Office</button>
+        <button class="filter" data-category="facilities">Facilities</button>
+      </div>
+
+      <div class="content-grid">
+        <section class="panel">
+          <div class="panel-title">Verified locations</div>
+          <div id="locationList"></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-title">Campus map</div>
+          <div id="mapArea">
+            <div id="mapPlaceholder">
+              <div>
+                <div class="emoji">📍</div>
+                <strong>Campus map is not verified yet</strong>
+                <p>
+                  Add confirmed campus coordinates to display
+                  the map markers. No campus pin has been guessed.
+                </p>
+              </div>
+            </div>
+            <div id="map"></div>
+          </div>
+        </section>
+      </div>
+
+      <div class="notice">
+        <strong>Data accuracy:</strong>
+        This first version contains no invented campus locations.
+        Directions will be added only after paths have been checked.
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    CampusNav AI · Early MVP · Campus information requires verification
+  </footer>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <script>
+    /*
+      Add only locations confirmed by the college or verified
+      through an authorized campus visit.
+
+      Keep this array empty until you have verified information.
+    */
+    const verifiedLocations = [
+      /*
+      {
+        id: "location-001",
+        name: "Verified location name",
+        category: "academic",
+        building: "Confirmed building name",
+        floor: "Confirmed floor or room",
+        description: "Confirmed location details",
+        lat: 22.000000,
+        lng: 75.000000,
+        verified: true
+      }
+      */
+    ];
+
+    let selectedCategory = "all";
+    let map = null;
+    let markerLayer = null;
+
+    const searchInput = document.getElementById("searchInput");
+    const locationList = document.getElementById("locationList");
+    const resultCount = document.getElementById("resultCount");
+    const mapPlaceholder = document.getElementById("mapPlaceholder");
+    const mapElement = document.getElementById("map");
+
+    function isValidLocation(location) {
+      return location.verified === true &&
+        typeof location.name === "string" &&
+        location.name.trim() !== "" &&
+        typeof location.lat === "number" &&
+        typeof location.lng === "number" &&
+        Number.isFinite(location.lat) &&
+        Number.isFinite(location.lng) &&
+        location.lat >= -90 &&
+        location.lat <= 90 &&
+        location.lng >= -180 &&
+        location.lng <= 180;
+    }
+
+    function getVerifiedLocations() {
+      return verifiedLocations.filter(isValidLocation);
+    }
+
+    function getFilteredLocations() {
+      const query = searchInput.value.trim().toLowerCase();
+
+      return getVerifiedLocations().filter(location => {
+        const matchesCategory =
+          selectedCategory === "all" ||
+          location.category === selectedCategory;
+
+        const searchableText = [
+          location.name,
+          location.category,
+          location.building,
+          location.floor,
+          location.description
+        ].filter(Boolean).join(" ").toLowerCase();
+
+        return matchesCategory && searchableText.includes(query);
+      });
+    }
+
+    function renderList() {
+      const locations = getFilteredLocations();
+      locationList.replaceChildren();
+
+      resultCount.textContent =
+        `${locations.length} verified location${locations.length === 1 ? "" : "s"}`;
+
+      if (locations.length === 0) {
+        const empty = document.createElement("div");
+        empty.className = "empty-state";
+
+        const emoji = document.createElement("div");
+        emoji.className = "emoji";
+        emoji.textContent = "🔎";
+
+        const heading = document.createElement("strong");
+        heading.textContent = getVerifiedLocations().length === 0
+          ? "Campus data is not added yet"
+          : "No matching location found";
+
+        const message = document.createElement("p");
+        message.textContent = getVerifiedLocations().length === 0
+          ? "Once you collect verified campus details, add them to the data section in index.html."
+          : "Try another search term or choose a different category.";
+
+        empty.append(emoji, heading, message);
+        locationList.appendChild(empty);
+        return;
+      }
+
+      locations.forEach(location => {
+        const card = document.createElement("button");
+        card.type = "button";
+        card.className = "location-card";
+
+        const title = document.createElement("strong");
+        title.textContent = location.name;
+
+        const details = document.createElement("small");
+        details.textContent = [
+          location.building,
+          location.floor,
+          location.description
+        ].filter(Boolean).join(" · ") || "Verified location";
+
+        card.append(title, details);
+        card.addEventListener("click", () => focusLocation(location));
+        locationList.appendChild(card);
+      });
+    }
+
+    function initializeMapIfReady() {
+      const locations = getVerifiedLocations();
+
+      if (locations.length === 0) {
+        mapPlaceholder.style.display = "flex";
+        mapElement.style.display = "none";
+        return;
+      }
+
+      mapPlaceholder.style.display = "none";
+      mapElement.style.display = "block";
+
+      if (!map) {
+        map = L.map("map");
+        L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          maxZoom: 19,
+          attribution:
+            '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>'
+        }).addTo(map);
+
+        markerLayer = L.layerGroup().addTo(map);
+      }
+
+      markerLayer.clearLayers();
+
+      locations.forEach(location => {
+        const marker = L.marker([location.lat, location.lng]);
+
+        const popup = document.createElement("div");
+        const title = document.createElement("strong");
+        title.textContent = location.name;
+
+        const description = document.createElement("p");
+        description.textContent = [
+          location.building,
+          location.floor,
+          location.description
+        ].filter(Boolean).join(" · ");
+
+        popup.append(title, description);
+        marker.bindPopup(popup);
+        marker.addTo(markerLayer);
+      });
+
+      const bounds = L.latLngBounds(
+        locations.map(location => [location.lat, location.lng])
+      );
+
+      if (locations.length === 1) {
+        map.setView(bounds.getCenter(), 17);
+      } else {
+        map.fitBounds(bounds, { padding: [25, 25], maxZoom: 18 });
+      }
+
+      setTimeout(() => map.invalidateSize(), 100);
+    }
+
+    function focusLocation(location) {
+      if (!map || !isValidLocation(location)) return;
+
+      map.setView([location.lat, location.lng], 18);
+
+      markerLayer.eachLayer(marker => {
+        const point = marker.getLatLng();
+
+        if (point.lat === location.lat && point.lng === location.lng) {
+          marker.openPopup();
+        }
+      });
+
+      if (window.innerWidth < 720) {
+        document.getElementById("mapArea").scrollIntoView({
+          behavior: "smooth",
+          block: "start"
+        });
+      }
+    }
+
+    document.getElementById("searchButton").addEventListener("click", renderList);
+
+    searchInput.addEventListener("input", renderList);
+
+    document.querySelectorAll(".filter").forEach(button => {
+      button.addEventListener("click", () => {
+        document.querySelectorAll(".filter").forEach(item => {
+          item.classList.remove("active");
+        });
+
+        button.classList.add("active");
+        selectedCategory = button.dataset.category;
+        renderList();
+      });
+    });
+
+    renderList();
+    initializeMapIfReady();
+  </script>
+</body>
+</html>
